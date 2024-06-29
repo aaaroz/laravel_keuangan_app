@@ -26,3 +26,7 @@ Route::get('/transaksi/hapus/{id}', [HomeController::class, 'transaksi_hapus'])-
 Route::get('/transaksi/cari', [HomeController::class, 'transaksi_cari'])->name('transaksi_cari');
 Route::get('/laporan', [HomeController::class, 'laporan'])->name('laporan');
 Route::get('/laporan/aksi', [HomeController::class, 'laporan_aksi'])->name('laporan_aksi');
+Route::get('/laporan/print', [HomeController::class, 'laporan_print'])->name('laporan_print');
+Route::get('/laporan/excel', [HomeController::class, 'laporan_excel'])->name('laporan_excel');
+Route::get('/ganti_password', [HomeController::class, 'ganti_password'])->name('ganti_password');
+Route::post('/ganti_password/aksi', [HomeController::class, 'ganti_password_aksi'])->name('ganti_password_aksi');

@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\LaporanExport;
 use App\Models\Kategori;
 use App\Models\Transaksi;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class HomeController extends Controller
 {
@@ -25,7 +31,50 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('home');
+        $tanggal_hari_ini = date('Y-m-d');
+        $bulan_ini = date('m');
+        $tahun_ini = date('Y');
+        $pemasukan_hari_ini = Transaksi::where('jenis', 'Pemasukan')
+            ->whereDate('tanggal', $tanggal_hari_ini)
+            ->sum('nominal');
+
+        $pemasukan_bulan_ini = Transaksi::where('jenis', 'Pemasukan')
+            ->whereMonth('tanggal', $bulan_ini)
+            ->sum('nominal');
+
+        $pemasukan_tahun_ini = Transaksi::where('jenis', 'Pemasukan')
+            ->whereYear('tanggal', $tahun_ini)
+            ->sum('nominal');
+
+        $seluruh_pemasukan = Transaksi::where('jenis', 'Pemasukan')
+            ->sum('nominal');
+
+        $pengeluaran_hari_ini = Transaksi::where('jenis', 'Pengeluaran')
+            ->whereDate('tanggal', $tanggal_hari_ini)
+            ->sum('nominal');
+
+        $pengeluaran_bulan_ini = Transaksi::where('jenis', 'Pengeluaran')
+            ->whereMonth('tanggal', $bulan_ini)
+            ->sum('nominal');
+
+        $pengeluaran_tahun_ini = Transaksi::where('jenis', 'Pengeluaran')
+            ->whereYear('tanggal', $tahun_ini)
+            ->sum('nominal');
+
+        $seluruh_pengeluaran = Transaksi::where('jenis', 'Pengeluaran')
+            ->sum('nominal');
+
+
+        return view("home", [
+            'pemasukan_hari_ini' => $pemasukan_hari_ini,
+            "pemasukan_bulan_ini" => $pemasukan_bulan_ini,
+            "pemasukan_tahun_ini" => $pemasukan_tahun_ini,
+            "seluruh_pemasukan" => $seluruh_pemasukan,
+            "pengeluaran_hari_ini" => $pengeluaran_hari_ini,
+            "pengeluaran_bulan_ini" => $pengeluaran_bulan_ini,
+            "pengeluaran_tahun_ini" => $pengeluaran_tahun_ini,
+            "seluruh_pengeluaran" => $seluruh_pengeluaran
+        ]);
     }
     public function kategori()
     {
@@ -185,5 +234,57 @@ class HomeController extends Controller
         }
 
         return view('laporan', ['laporan' => $laporan, 'dari' => $dari, 'sampai' => $sampai, 'kategori' => $kategori, 'kategori_id' => $kategori_id]);
+    }
+    public function laporan_print(Request $req)
+    {
+        $req->validate(
+            [
+                'dari' => "required",
+                'sampai' => "required",
+            ]
+        );
+        $kategori = Kategori::all();
+        $dari = $req->dari;
+        $sampai = $req->sampai;
+        $kategori_id = $req->kategori;
+        if ($kategori_id == 'semua') {
+            $laporan = Transaksi::whereDate('tanggal',  '>=', $dari)->whereDate('tanggal',  '<=', $sampai)->orderBy('id', 'desc')->get();
+        } else {
+            $laporan = Transaksi::whereDate('tanggal',  '>=', $dari)->whereDate('tanggal',  '<=', $sampai)->where('kategori_id', $kategori_id)->orderBy('id', 'desc')->get();
+        }
+
+        return view('laporan_print', ['laporan' => $laporan, 'dari' => $dari, 'sampai' => $sampai, 'kategori' => $kategori, 'kategori_id' => $kategori_id]);
+    }
+    public function laporan_excel()
+    {
+        return Excel::download(new LaporanExport, 'laporan.xlsx');
+    }
+    public function ganti_password()
+    {
+        return view('ganti_password');
+    }
+    public function ganti_password_aksi(Request $request)
+    {
+        // periksa apakah inputan password sekarang ('current-password') sesusai dengan password sekarang
+        if (!(Hash::check($request->get('password_now'), Auth::user()->password))) {
+            // jika tidak sesuai, alihkan halaman kembali ke form ganti password
+            // sambil mengirimkan pemberitahuan bahwa password tidak sesuai
+            return redirect()->back()->with("error", "Password sekarang tidak sesuai ");
+        }
+        //jika password baru yang di inputkan sama dengan password lama
+        // periksa jika password baru sama dengan password sekarang
+        if (strcmp($request->get('password_now'), $request->get('password')) == 0) {
+            return redirect()->back()->with("error", "Password baru tidak boleh sama dengan password sekarang");
+        }
+        // membuat form validasi
+        $request->validate([
+            'password_now' => 'required',
+            'password' => 'required|string|min:6|confirmed'
+        ]);
+        // ganti password user yang sedang login dengan password baru
+        $user = User::find(Auth::user()->id);
+        $user->password = bcrypt($request->get('password'));
+        $user->save();
+        return redirect()->back()->with("success", "Password berhasil diganti");
     }
 }
